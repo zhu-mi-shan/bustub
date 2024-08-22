@@ -1,5 +1,9 @@
 #include "primer/trie_store.h"
+#include <memory>
+#include <mutex>
+#include <utility>
 #include "common/exception.h"
+#include "primer/trie.h"
 
 namespace bustub {
 
@@ -11,20 +15,49 @@ auto TrieStore::Get(std::string_view key) -> std::optional<ValueGuard<T>> {
   // (2) Lookup the value in the trie.
   // (3) If the value is found, return a ValueGuard object that holds a reference to the value and the
   //     root. Otherwise, return std::nullopt.
-  throw NotImplementedException("TrieStore::Get is not implemented.");
+  // throw NotImplementedException("TrieStore::Get is not implemented.");
+  Trie cur_trie = Trie();
+  {
+    std::lock_guard<std::mutex> root_lock(this->root_lock_);
+    cur_trie = this->root_;
+  }
+  const T *value = cur_trie.Get<T>(key);
+  if (value == nullptr) {
+    return std::nullopt;
+  }
+  return ValueGuard<T>(cur_trie, std::move(*value));
 }
 
 template <class T>
 void TrieStore::Put(std::string_view key, T value) {
   // You will need to ensure there is only one writer at a time. Think of how you can achieve this.
   // The logic should be somehow similar to `TrieStore::Get`.
-  throw NotImplementedException("TrieStore::Put is not implemented.");
+  // throw NotImplementedException("TrieStore::Put is not implemented.");
+  Trie cur_trie = Trie();
+  T put_value = std::move(value);
+  {
+    std::lock_guard<std::mutex> write_lock(this->write_lock_);
+    {
+      std::lock_guard<std::mutex> root_lock(this->root_lock_);
+      cur_trie = this->root_;
+      this->root_ = cur_trie.Put(key, std::move(put_value));
+    }
+  }
 }
 
 void TrieStore::Remove(std::string_view key) {
   // You will need to ensure there is only one writer at a time. Think of how you can achieve this.
   // The logic should be somehow similar to `TrieStore::Get`.
-  throw NotImplementedException("TrieStore::Remove is not implemented.");
+  // throw NotImplementedException("TrieStore::Remove is not implemented.");
+  Trie cur_trie = Trie();
+  {
+    std::lock_guard<std::mutex> write_lock(this->write_lock_);
+    {
+      std::lock_guard<std::mutex> root_lock(this->root_lock_);
+      cur_trie = this->root_;
+      this->root_ = cur_trie.Remove(key);
+    }
+  }
 }
 
 // Below are explicit instantiation of template functions.
